@@ -49,7 +49,7 @@ secure-linux-server-admin/
 * [x] **Phase 1:** Hybrid Infrastructure Setup & Baseline Profiling
 * [x] **Phase 2:** Identity, Group Architecture & Least-Privilege `sudo`
 * [x] **Phase 3:** Shared Filesystem Hierarchy, Permissions & SGID Inheritance
-* [ ] **Phase 4:** Package & Software Lifecycle Management (`APT`)
+* [x ] **Phase 4:** Package & Software Lifecycle Management (`APT`)
 * [ ] **Phase 5:** SSH Key-Based Authentication & Daemon Hardening
 * [ ] **Phase 6:** Host Firewall (`UFW`) & Perimeter Hardening
 * [ ] **Phase 7:** Service Lifecycle (`systemd`), Networking & Log Diagnostics (`journalctl`)
@@ -114,3 +114,24 @@ Design isolated departmental workspaces under `/srv/nexacore` with automatic gro
    * Confirmed `aud-author` can list and read compliance reports in `/srv/nexacore/audit`, but receives `Permission denied` when attempting to enter `/srv/nexacore/dev` or modify files inside `/srv/nexacore/audit`.
 
 ![Phase 3 Permissions and Access Verification](docs/Phase3-permissions.png)
+
+## Phase 4: Package & Software Lifecycle Management (`APT`)
+
+### Objective
+Maintain system patch hygiene, install essential web and diagnostic software, inspect package dependencies, and enforce clean dependency/cache maintenance.
+
+### Installed Server & Diagnostic Stack
+
+| Package | Category | Purpose on `vm-prod-srv-01` |
+| :--- | :--- | :--- |
+| `nginx` | Web Server | Core HTTP application service for firewall, `systemd`, and log testing |
+| `curl` | Network Utility | Command-line HTTP endpoint and connectivity verification |
+| `tree` | Filesystem Utility | Hierarchical directory auditing for `/srv/nexacore` |
+| `htop` | Process Monitor | Real-time CPU, memory, and process inspection |
+
+### Key Actions & Verification
+1. **System Patching:** Refreshed APT repository indexes (`apt update`) and applied all available security and package upgrades (`apt upgrade -y`).
+2. **Software Provisioning & Inspection:** Installed `nginx`, `curl`, `tree`, and `htop`, inspected dependency trees via `apt show nginx`, and verified `ii` installation states with `dpkg -l`.
+3. **Lifecycle Cleanup & Audit:** Verified clean package removal (`apt purge`), orphaned dependency cleanup (`apt autoremove`), cache pruning (`apt autoclean`), and zero broken dependencies (`dpkg --audit`).
+
+![Phase 4 Package Management Verification](docs/phase4-packages.png)
