@@ -1,15 +1,15 @@
 # Secure Linux Server Administration and Management
 
-A hands-on, enterprise-grade Linux infrastructure administration project simulating the provisioning, access control, hardening, and operational management of a production Ubuntu server (**NexaCore Technologies**).
+A hands-on Linux administration project simulating the provisioning, access control, hardening, and operation of an Ubuntu server for a fictional company (**NexaCore Technologies**), built on a Microsoft Azure VM and managed remotely over SSH.
+
+**Skills demonstrated:** `Linux` · `SSH hardening` · `UFW firewall` · `sudo / least privilege` · `file permissions (SGID)` · `systemd` · `journalctl` · `Bash scripting` · `cron` · `Azure VM` · `Git`
 
 ---
 
-## Architecture & Environment
+## Architecture
 
-This lab uses a **hybrid client-server architecture** separating the administrator's local workstation from the remote cloud production server:
-
-* **Administrator Workstation (`noebl@nobel`):** Local Ubuntu VM used for remote SSH administration, configuration management, and Git version control.
-* **Managed Cloud Server (`vm-prod-srv-01`):** Microsoft Azure Virtual Machine running **Ubuntu Server 24.04 LTS** (`Standard_B2ats_v2`), managed remotely over encrypted SSH sessions.
+* **Administrator Workstation (`noebl@nobel`):** Local Ubuntu VM used for SSH administration and Git version control.
+* **Managed Server (`vm-prod-srv-01`):** Azure VM running Ubuntu Server 24.04 LTS (`Standard_B2ats_v2`).
 
 ```text
 +-----------------------------------+          +---------------------------------------------+
@@ -25,196 +25,208 @@ This lab uses a **hybrid client-server architecture** separating the administrat
 
 ---
 
-## Repository Structure
+## Project Highlights
 
-```text
-secure-linux-server-admin/
-├── configs/
-│   └── nexacore-sysadmins.sudoers    # Sanitized sudoers privilege policy
-├── docs/
-│   ├── azure-vm-overview.png         # Azure VM deployment verification
-│   ├── phase1-baseline.txt           # Workstation network baseline output
-│   ├── phase1-SSH-baseline.png       # Initial SSH connection & resource check
-│   ├── phase2-users-sudo.png         # Group, user, and sudo verification proof
-│   └── phase3-permissions.png        # Directory permissions & access test proof
-├── scripts/                          # Administrative automation scripts (upcoming)
-├── .gitignore                        # Excludes private SSH keys and sensitive files
-└── README.md                         # Complete project documentation
-```
+* Created 3 departmental groups with **least-privilege `sudo`** (only `sysadmins` can escalate)
+* Built **SGID shared directories** and verified access with positive and negative tests
+* Hardened SSH: **Ed25519 key-only login**, root login and password auth disabled
+* Configured a **default-deny UFW firewall** aligned with Azure NSG rules
+* Diagnosed a simulated Nginx failure using `journalctl` and `nginx -t`
+* Automated **daily backups (7-day retention)** and a **5-minute health check** with Bash + cron
 
 ---
 
 ## Implementation Progress
 
-* [x] **Phase 1:** Hybrid Infrastructure Setup & Baseline Profiling
-* [x] **Phase 2:** Identity, Group Architecture & Least-Privilege `sudo`
-* [x] **Phase 3:** Shared Filesystem Hierarchy, Permissions & SGID Inheritance
-* [x] **Phase 4:** Package & Software Lifecycle Management (`APT`)
-* [x] **Phase 5:** SSH Key-Based Authentication & Daemon Hardening
-* [x] **Phase 6:** Host Firewall (`UFW`) & Perimeter Hardening
-* [x] **Phase 7:** Service Lifecycle (`systemd`), Networking & Log Diagnostics (`journalctl`)
-* [x] **Phase 8:** Automated Backups (`tar`/`rsync`), Bash Health Checks & `cron`
+| Phase | Topic | Status |
+| :--- | :--- | :---: |
+| 1 | Infrastructure setup & baseline profiling | ✅ |
+| 2 | Identity, groups & least-privilege `sudo` | ✅ |
+| 3 | Shared filesystem, permissions & SGID | ✅ |
+| 4 | Package management (`APT`) | ✅ |
+| 5 | SSH key authentication & hardening | ✅ |
+| 6 | Host firewall (`UFW`) | ✅ |
+| 7 | `systemd`, networking & log diagnostics | ✅ |
+| 8 | Automated backups, health checks & `cron` | ✅ |
+
+> Click any phase below to see the details and screenshots.
 
 ---
 
-## Phase 1: Hybrid Infrastructure Setup & Baseline Profiling
+## Phase Details
 
-### Objective
-Provision a remote cloud server, establish encrypted remote connectivity from the administrator workstation, and verify baseline compute, memory, storage, and network states.
+<details>
+<summary><b>Phase 1: Infrastructure Setup & Baseline Profiling</b></summary>
 
-### Key Actions & Verification
-1. **Workstation & Repository Initialization:** Created a structured Git workspace on `noebl@nobel` with `.gitignore` rules protecting private key patterns (`*.pem`, `*.key`, `id_ed25519*`) and verified local NIC reachability (`enp0s3`).
-2. **Cloud Server Provisioning:** Deployed `vm-prod-srv-01` on Microsoft Azure running **Ubuntu 24.04 LTS** with inbound SSH (`TCP/22`) enabled.
-3. **Remote SSH & Resource Audit:** Connected from the workstation via SSH (`azureuser@vm-prod-srv-01`) and verified OS release, kernel build, RAM availability (`free -h`), and root disk capacity (`df -h /`).
+**Objective:** Provision a remote server, connect securely over SSH, and verify baseline resources.
+
+* Created a Git workspace with `.gitignore` rules protecting private keys (`*.pem`, `*.key`, `id_ed25519*`)
+* Deployed `vm-prod-srv-01` on Azure (Ubuntu 24.04 LTS) with inbound SSH (`TCP/22`)
+* Connected via SSH and checked OS release, kernel, RAM (`free -h`) and disk (`df -h /`)
 
 ![Azure VM Overview](docs/azure-vm-overview.png)
 ![Phase 1 SSH Baseline](docs/phase1-SSH-baseline.png)
 
----
+</details>
 
-## Phase 2: Identity, Group Architecture & Least-Privilege `sudo`
+<details>
+<summary><b>Phase 2: Identity, Groups & Least-Privilege sudo</b></summary>
 
-### Objective
-Implement role-based identity isolation across three company departments while enforcing the **Principle of Least Privilege**.
+**Objective:** Isolate three departments and enforce the Principle of Least Privilege.
 
-### Departmental Access Matrix
+| Account | Group | `sudo` | Role |
+| :--- | :--- | :--- | :--- |
+| `dev-jason` | `developers` | Denied | Application development |
+| `sys-lucia` | `sysadmins` | Full | Server administration |
+| `aud-author` | `auditors` | Denied | Read-only auditing |
 
-| Employee Account | Primary Group | Supplementary Group | Shell | `sudo` Privileges | Operational Role |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `dev-jason` | `dev-jason` | `developers` | `/bin/bash` | Denied | Application development |
-| `sys-lucia` | `sys-lucia` | `sysadmins` | `/bin/bash` | Full (`%sysadmins`) | Server operations & admin |
-| `aud-author` | `aud-author` | `auditors` | `/bin/bash` | Denied | Read-only compliance auditing |
-
-### Key Actions & Verification
-1. **Group & Account Provisioning:** Created departmental groups (`developers`, `sysadmins`, `auditors`) with `groupadd` and provisioned employee accounts with dedicated home directories (`useradd -m -s /bin/bash -G <group>`).
-2. **Modular `sudo` Delegation:** Configured `/etc/sudoers.d/nexacore-sysadmins` (`%sysadmins ALL=(ALL:ALL) ALL`) with strict `0440` permissions and validated syntax via `visudo -c`.
-3. **Privilege Audit:** Verified via `sudo -l -U <user>` that `sys-lucia` holds administrative escalation rights while `dev-jason` and `aud-author` are explicitly blocked.
+* Created groups with `groupadd` and users with `useradd -m -s /bin/bash -G <group>`
+* Configured `/etc/sudoers.d/nexacore-sysadmins` (mode `0440`) and validated it with `visudo -c`
+* Verified privileges with `sudo -l -U <user>`
 
 ![Phase 2 Users and Sudo Verification](docs/phase2-users-sudo.png)
 
----
+</details>
 
-## Phase 3: Shared Filesystem Hierarchy, Permissions & SGID Inheritance
+<details>
+<summary><b>Phase 3: Shared Filesystem, Permissions & SGID</b></summary>
 
-### Objective
-Design isolated departmental workspaces under `/srv/nexacore` with automatic group ownership inheritance (`SGID`) and verify cross-department access boundaries.
+**Objective:** Build departmental workspaces under `/srv/nexacore` with automatic group inheritance.
 
-### Directory Permission Architecture
+| Directory | Owner:Group | Mode | Policy |
+| :--- | :--- | :--- | :--- |
+| `/srv/nexacore/dev` | `root:developers` | `2770` | Read/write for developers only |
+| `/srv/nexacore/sys` | `root:sysadmins` | `2770` | Read/write for sysadmins only |
+| `/srv/nexacore/audit` | `root:auditors` | `2750` | Read-only for auditors |
 
-| Directory Path | Owner:Group | Mode | Effective Permissions | Access Policy |
-| :--- | :--- | :--- | :--- | :--- |
-| `/srv/nexacore/dev` | `root:developers` | `2770` | `drwxrws---` | Full read/write for `developers` (`SGID`); no access for others |
-| `/srv/nexacore/sys` | `root:sysadmins` | `2770` | `drwxrws---` | Full read/write for `sysadmins` (`SGID`); no access for others |
-| `/srv/nexacore/audit` | `root:auditors` | `2750` | `drwxr-s---` | Read-only (`r-x`) for `auditors` (`SGID`); no write or external access |
-
-### Key Actions & Verification
-1. **Ownership & Permission Enforcement:** Applied `chown` and octal modes (`2770` and `2750`) so newly created files automatically inherit their parent directory's department group (`SGID`).
-2. **Positive & Negative Access Testing:**
-   * Confirmed `dev-jason` and `sys-lucia` can create files in their respective workspaces with automatic group inheritance (`developers` and `sysadmins`).
-   * Confirmed `aud-author` can list and read compliance reports in `/srv/nexacore/audit`, but receives `Permission denied` when attempting to enter `/srv/nexacore/dev` or modify files inside `/srv/nexacore/audit`.
+* New files automatically inherit the directory's group (SGID)
+* `aud-author` can read audit reports but gets `Permission denied` when entering `dev` or modifying audit files
 
 ![Phase 3 Permissions and Access Verification](docs/Phase3-permissions.png)
 
-## Phase 4: Package & Software Lifecycle Management (`APT`)
+</details>
 
-### Objective
-Maintain system patch hygiene, install essential web and diagnostic software, inspect package dependencies, and enforce clean dependency/cache maintenance.
+<details>
+<summary><b>Phase 4: Package & Software Lifecycle (APT)</b></summary>
 
-### Installed Server & Diagnostic Stack
+**Objective:** Maintain patch hygiene and manage packages cleanly.
 
-| Package | Category | Purpose on `vm-prod-srv-01` |
-| :--- | :--- | :--- |
-| `nginx` | Web Server | Core HTTP application service for firewall, `systemd`, and log testing |
-| `curl` | Network Utility | Command-line HTTP endpoint and connectivity verification |
-| `tree` | Filesystem Utility | Hierarchical directory auditing for `/srv/nexacore` |
-| `htop` | Process Monitor | Real-time CPU, memory, and process inspection |
-
-### Key Actions & Verification
-1. **System Patching:** Refreshed APT repository indexes (`apt update`) and applied all available security and package upgrades (`apt upgrade -y`).
-2. **Software Provisioning & Inspection:** Installed `nginx`, `curl`, `tree`, and `htop`, inspected dependency trees via `apt show nginx`, and verified `ii` installation states with `dpkg -l`.
-3. **Lifecycle Cleanup & Audit:** Verified clean package removal (`apt purge`), orphaned dependency cleanup (`apt autoremove`), cache pruning (`apt autoclean`), and zero broken dependencies (`dpkg --audit`).
+* Ran `apt update` and `apt upgrade -y`
+* Installed `nginx`, `curl`, `tree`, `htop` and inspected packages with `apt show` and `dpkg -l`
+* Cleaned up with `apt purge`, `apt autoremove`, `apt autoclean` and checked `dpkg --audit` for broken dependencies
 
 ![Phase 4 Package Management Verification](docs/phase4-packages.png)
 
-## Phase 5: SSH Key-Based Authentication & Daemon Hardening
+</details>
 
-### Objective
-Eliminate password-based brute-force exposure on `vm-prod-srv-01` by enforcing Ed25519 asymmetric key authentication and hardening the OpenSSH daemon configuration.
+<details>
+<summary><b>Phase 5: SSH Key Authentication & Hardening</b></summary>
 
-### Hardened `sshd` Policy (`configs/01-nexacore-hardening.conf`)
+**Objective:** Remove password-based brute-force exposure by enforcing key-only SSH.
 
-| Directive | Configured Value | Security Control |
+Config file: `configs/01-nexacore-hardening.conf`
+
+| Directive | Value | Purpose |
 | :--- | :--- | :--- |
-| `PubkeyAuthentication` | `yes` | Enforces cryptographic key-pair authentication |
-| `PasswordAuthentication` | `no` | Blocks password-based SSH login attempts |
-| `KbdInteractiveAuthentication` | `no` | Prevents challenge-response password fallback |
-| `PermitRootLogin` | `no` | Blocks direct remote root access over SSH |
-| `MaxAuthTries` | `3` | Limits authentication attempts per connection |
-| `X11Forwarding` | `no` | Disables unused GUI forwarding tunnels |
+| `PubkeyAuthentication` | `yes` | Key-pair authentication |
+| `PasswordAuthentication` | `no` | Blocks password logins |
+| `KbdInteractiveAuthentication` | `no` | Blocks challenge-response fallback |
+| `PermitRootLogin` | `no` | Blocks remote root login |
+| `MaxAuthTries` | `3` | Limits attempts per connection |
+| `X11Forwarding` | `no` | Disables unused GUI forwarding |
 
-### Key Actions & Verification
-1. **Asymmetric Key Provisioning:** Generated an Ed25519 key pair (`ssh-keygen -t ed25519`) on the administrator workstation (`noebl@nobel`) and deployed the public key to `azureuser@vm-prod-srv-01` via `ssh-copy-id`.
-2. **Modular Daemon Hardening:** Applied `/etc/ssh/sshd_config.d/01-nexacore-hardening.conf`, validated configuration syntax with `sshd -t`, and reloaded `ssh` cleanly.
-3. **Runtime & Negative Testing:** Verified effective runtime settings via `sshd -T` and confirmed password-only connections (`ssh -o PubkeyAuthentication=no`) are rejected with `Permission denied (publickey)`.
+* Generated an Ed25519 key (`ssh-keygen -t ed25519`) and deployed it with `ssh-copy-id`
+* Validated config with `sshd -t` and checked runtime values with `sshd -T`
+* Confirmed password-only login fails with `Permission denied (publickey)`
 
 ![Phase 5 SSH Hardening Verification](docs/phase5-ssh-hardening.png)
 
-## Phase 6: Host Firewall (`UFW`) & Perimeter Hardening
+</details>
 
-### Objective
-Enforce defense-in-depth perimeter protection on `vm-prod-srv-01` by configuring a default-deny host firewall (`UFW`) aligned with active network services and Azure NSG rules.
+<details>
+<summary><b>Phase 6: Host Firewall (UFW)</b></summary>
 
-### Active Firewall Policy (`ufw status verbose`)
+**Objective:** Add a default-deny host firewall aligned with the Azure NSG.
 
-| Rule / Policy | Direction | Action | Target / Port | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| Default Policy | Incoming | `DENY` | All Unlisted Ports | Blocks unsolicited inbound network probes |
-| Default Policy | Outgoing | `ALLOW` | All Outbound | Permits `APT` updates, DNS, and system traffic |
-| Administrative Access | Inbound | `ALLOW IN` | `22/tcp` (IPv4 & IPv6) | Encrypted SSH administration |
-| Application Service | Inbound | `ALLOW IN` | `80/tcp` (IPv4 & IPv6) | Nginx HTTP web traffic |
+| Rule | Action | Port | Purpose |
+| :--- | :--- | :--- | :--- |
+| Incoming (default) | `DENY` | All other ports | Blocks unsolicited traffic |
+| Outgoing (default) | `ALLOW` | All | Updates, DNS |
+| SSH | `ALLOW IN` | `22/tcp` | Remote administration |
+| HTTP | `ALLOW IN` | `80/tcp` | Nginx web traffic |
 
-### Key Actions & Verification
-1. **Default-Deny Posture:** Configured `ufw default deny incoming` and `ufw default allow outgoing`, staging `22/tcp` prior to activation to prevent administrative lockout.
-2. **Service Rule & Activation:** Permitted `80/tcp` with audit comments, enabled UFW across system reboots (`ufw enable`), and verified active rules via `ufw status verbose` and `ufw status numbered`.
-3. **Socket & Perimeter Verification:** Audited listening sockets (`ss -tulnp`) to confirm strict alignment with `sshd` (`22`) and `nginx` (`80`), and verified external port reachability versus closed-port packet drops (`8080`).
+* Allowed SSH **before** enabling UFW to avoid locking myself out
+* Checked listening sockets with `ss -tulnp` (only `sshd` and `nginx`)
+* Verified that port `80` is reachable and port `8080` is blocked
 
 ![Phase 6 UFW Firewall Verification](docs/phase6-firewall.png)
 
-## Phase 7: Service Lifecycle (`systemd`), Networking & Log Diagnostics (`journalctl`)
+</details>
 
-### Objective
-Ensure high availability of critical infrastructure daemons across reboots, practice structured service failure diagnosis and recovery, and validate network/DNS stack health.
+<details>
+<summary><b>Phase 7: systemd, Networking & Log Diagnostics</b></summary>
 
-### Managed Service Matrix (`systemctl`)
+**Objective:** Keep services running across reboots and practice failure diagnosis.
 
-| Service Unit | Runtime State | Boot State | Operational Role |
+| Service | State | Boot | Role |
 | :--- | :--- | :--- | :--- |
-| `nginx.service` | `active (running)` | `enabled` | Serves NexaCore Technologies HTTP status application |
-| `ssh.service` | `active (running)` | `enabled` | Provides hardened key-only remote administration |
-| `ufw.service` | `active (exited)` | `enabled` | Loads persistent kernel packet-filtering rules at boot |
+| `nginx.service` | active (running) | enabled | Web server |
+| `ssh.service` | active (running) | enabled | Key-only administration |
+| `ufw.service` | active (exited) | enabled | Loads firewall rules at boot |
 
-### Key Actions & Verification
-1. **Service Lifecycle & Zero-Downtime Reloads:** Verified `active` and `enabled` states across `nginx`, `ssh`, and `ufw`, and confirmed graceful configuration reloads (`systemctl reload nginx`) preserve the active `MainPID`.
-2. **Fault Simulation & Root-Cause Diagnostics:** Deployed a custom NexaCore HTML status page (`/var/www/html/index.html`), simulated a broken Nginx drop-in configuration, diagnosed the exact syntax fault via `journalctl -u nginx` and `nginx -t`, and restored service cleanly.
-3. **Network, DNS & Journal Audit:** Verified `eth0` link status (`ip -br a`), default gateway routing (`ip route`), DNS name resolution (`getent hosts`), and boot-level error logs (`journalctl -p err -b`).
+* Confirmed `systemctl reload nginx` keeps the same `MainPID`
+* **Fault simulation:** broke an Nginx drop-in config, found the error with `journalctl -u nginx` and `nginx -t`, then restored the service
+* Checked network health with `ip -br a`, `ip route`, `getent hosts` and `journalctl -p err -b`
 
 ![Phase 7 Service and Network Verification](docs/phase7-services-logs.png)
 
-## Phase 8: Automated Backups (`tar`), Bash Health Checks & `cron`
+</details>
 
-### Objective
-Automate disaster-recovery backups with retention pruning and continuous server health telemetry using defensive Bash scripting (`set -euo pipefail`) scheduled via `root`'s `crontab`.
+<details>
+<summary><b>Phase 8: Automated Backups, Health Checks & cron</b></summary>
 
-### Automation & Scheduling Matrix
+**Objective:** Automate backups and server monitoring with defensive Bash (`set -euo pipefail`).
 
-| Script Path | Schedule (`cron`) | Audit Log | Key Responsibilities |
+| Script | Schedule | Log | Function |
 | :--- | :--- | :--- | :--- |
-| `scripts/nexacore-backup.sh` | `0 2 * * *` (Daily 02:00) | `/var/log/nexacore-backup.log` | Compresses `/srv/nexacore`, `sshd_config.d`, `sudoers.d`, and `/var/www/html` into `0600` archives and prunes files older than 7 days |
-| `scripts/nexacore-healthcheck.sh` | `*/5 * * * *` (Every 5 min) | `/var/log/nexacore-health.log` | Audits `nginx`/`ssh`/`ufw` states, root disk usage (threshold 80%), RAM utilization, and local HTTP `200` status |
+| `scripts/nexacore-backup.sh` | Daily 02:00 | `/var/log/nexacore-backup.log` | Archives `/srv/nexacore`, `sshd_config.d`, `sudoers.d`, `/var/www/html` (mode `0600`), prunes files older than 7 days |
+| `scripts/nexacore-healthcheck.sh` | Every 5 min | `/var/log/nexacore-health.log` | Checks `nginx`/`ssh`/`ufw`, disk (80% threshold), RAM, and local HTTP `200` |
 
-### Key Actions & Verification
-1. **Defensive Backup Automation:** Built `/usr/local/sbin/nexacore-backup.sh` (`chmod 700`) outputting restricted (`chmod 600`) timestamped `.tar.gz` archives to `/var/backups/nexacore` and verified archive contents via `tar -tzf`.
-2. **Threshold-Based Health Monitoring:** Built `/usr/local/sbin/nexacore-healthcheck.sh` (`chmod 700`) to evaluate service availability, disk/memory thresholds, and HTTP health codes into structured audit logs.
-3. **Cron Scheduling & Live Execution Proof:** Registered both scripts in `root`'s `crontab` with explicit `SHELL` and `PATH` declarations, confirming automated 5-minute execution in `journalctl -u cron` and `/var/log/nexacore-health.log`.
+* Scripts installed in `/usr/local/sbin/` with `chmod 700`
+* Registered in root's `crontab` with explicit `SHELL` and `PATH`
+* Confirmed automatic execution in `journalctl -u cron` and the health log
 
 ![Phase 8 Automation and Cron Verification](docs/phase8-automation-cron.png)
+
+</details>
+
+---
+
+## Repository Structure
+
+```text
+secure-linux-server-admin/
+├── configs/
+│   ├── nexacore-sysadmins.sudoers       # Sanitized sudoers policy
+│   └── 01-nexacore-hardening.conf       # SSH hardening config
+├── scripts/
+│   ├── nexacore-backup.sh               # Daily backup with retention
+│   └── nexacore-healthcheck.sh          # Service/disk/RAM/HTTP health check
+├── docs/                                # Screenshots and verification output
+├── .gitignore                           # Excludes private keys and sensitive files
+└── README.md
+```
+
+---
+
+## Future Improvements
+
+* Add `fail2ban` for SSH intrusion prevention
+* Automate the setup with an Ansible playbook
+* Send health-check alerts by email or Slack
+
+---
+
+## Disclaimer
+
+This is a learning lab environment simulating an enterprise setup. No real company data is used.
