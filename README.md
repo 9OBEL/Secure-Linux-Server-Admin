@@ -53,7 +53,7 @@ secure-linux-server-admin/
 * [x] **Phase 5:** SSH Key-Based Authentication & Daemon Hardening
 * [x] **Phase 6:** Host Firewall (`UFW`) & Perimeter Hardening
 * [x] **Phase 7:** Service Lifecycle (`systemd`), Networking & Log Diagnostics (`journalctl`)
-* [ ] **Phase 8:** Automated Backups (`tar`/`rsync`), Bash Health Checks & `cron`
+* [x] **Phase 8:** Automated Backups (`tar`/`rsync`), Bash Health Checks & `cron`
 
 ---
 
@@ -199,3 +199,22 @@ Ensure high availability of critical infrastructure daemons across reboots, prac
 3. **Network, DNS & Journal Audit:** Verified `eth0` link status (`ip -br a`), default gateway routing (`ip route`), DNS name resolution (`getent hosts`), and boot-level error logs (`journalctl -p err -b`).
 
 ![Phase 7 Service and Network Verification](docs/phase7-services-logs.png)
+
+## Phase 8: Automated Backups (`tar`), Bash Health Checks & `cron`
+
+### Objective
+Automate disaster-recovery backups with retention pruning and continuous server health telemetry using defensive Bash scripting (`set -euo pipefail`) scheduled via `root`'s `crontab`.
+
+### Automation & Scheduling Matrix
+
+| Script Path | Schedule (`cron`) | Audit Log | Key Responsibilities |
+| :--- | :--- | :--- | :--- |
+| `scripts/nexacore-backup.sh` | `0 2 * * *` (Daily 02:00) | `/var/log/nexacore-backup.log` | Compresses `/srv/nexacore`, `sshd_config.d`, `sudoers.d`, and `/var/www/html` into `0600` archives and prunes files older than 7 days |
+| `scripts/nexacore-healthcheck.sh` | `*/5 * * * *` (Every 5 min) | `/var/log/nexacore-health.log` | Audits `nginx`/`ssh`/`ufw` states, root disk usage (threshold 80%), RAM utilization, and local HTTP `200` status |
+
+### Key Actions & Verification
+1. **Defensive Backup Automation:** Built `/usr/local/sbin/nexacore-backup.sh` (`chmod 700`) outputting restricted (`chmod 600`) timestamped `.tar.gz` archives to `/var/backups/nexacore` and verified archive contents via `tar -tzf`.
+2. **Threshold-Based Health Monitoring:** Built `/usr/local/sbin/nexacore-healthcheck.sh` (`chmod 700`) to evaluate service availability, disk/memory thresholds, and HTTP health codes into structured audit logs.
+3. **Cron Scheduling & Live Execution Proof:** Registered both scripts in `root`'s `crontab` with explicit `SHELL` and `PATH` declarations, confirming automated 5-minute execution in `journalctl -u cron` and `/var/log/nexacore-health.log`.
+
+![Phase 8 Automation and Cron Verification](docs/phase8-automation-cron.png)
