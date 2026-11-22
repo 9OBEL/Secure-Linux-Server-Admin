@@ -52,7 +52,7 @@ secure-linux-server-admin/
 * [x] **Phase 4:** Package & Software Lifecycle Management (`APT`)
 * [x] **Phase 5:** SSH Key-Based Authentication & Daemon Hardening
 * [x] **Phase 6:** Host Firewall (`UFW`) & Perimeter Hardening
-* [ ] **Phase 7:** Service Lifecycle (`systemd`), Networking & Log Diagnostics (`journalctl`)
+* [x] **Phase 7:** Service Lifecycle (`systemd`), Networking & Log Diagnostics (`journalctl`)
 * [ ] **Phase 8:** Automated Backups (`tar`/`rsync`), Bash Health Checks & `cron`
 
 ---
@@ -179,3 +179,23 @@ Enforce defense-in-depth perimeter protection on `vm-prod-srv-01` by configuring
 3. **Socket & Perimeter Verification:** Audited listening sockets (`ss -tulnp`) to confirm strict alignment with `sshd` (`22`) and `nginx` (`80`), and verified external port reachability versus closed-port packet drops (`8080`).
 
 ![Phase 6 UFW Firewall Verification](docs/phase6-firewall.png)
+
+## Phase 7: Service Lifecycle (`systemd`), Networking & Log Diagnostics (`journalctl`)
+
+### Objective
+Ensure high availability of critical infrastructure daemons across reboots, practice structured service failure diagnosis and recovery, and validate network/DNS stack health.
+
+### Managed Service Matrix (`systemctl`)
+
+| Service Unit | Runtime State | Boot State | Operational Role |
+| :--- | :--- | :--- | :--- |
+| `nginx.service` | `active (running)` | `enabled` | Serves NexaCore Technologies HTTP status application |
+| `ssh.service` | `active (running)` | `enabled` | Provides hardened key-only remote administration |
+| `ufw.service` | `active (exited)` | `enabled` | Loads persistent kernel packet-filtering rules at boot |
+
+### Key Actions & Verification
+1. **Service Lifecycle & Zero-Downtime Reloads:** Verified `active` and `enabled` states across `nginx`, `ssh`, and `ufw`, and confirmed graceful configuration reloads (`systemctl reload nginx`) preserve the active `MainPID`.
+2. **Fault Simulation & Root-Cause Diagnostics:** Deployed a custom NexaCore HTML status page (`/var/www/html/index.html`), simulated a broken Nginx drop-in configuration, diagnosed the exact syntax fault via `journalctl -u nginx` and `nginx -t`, and restored service cleanly.
+3. **Network, DNS & Journal Audit:** Verified `eth0` link status (`ip -br a`), default gateway routing (`ip route`), DNS name resolution (`getent hosts`), and boot-level error logs (`journalctl -p err -b`).
+
+![Phase 7 Service and Network Verification](docs/phase7-services-logs.png)
