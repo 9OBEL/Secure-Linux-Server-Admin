@@ -113,4 +113,4 @@ Design isolated departmental workspaces under `/srv/nexacore` with automatic gro
    * Confirmed `dev-jason` and `sys-lucia` can create files in their respective workspaces with automatic group inheritance (`developers` and `sysadmins`).
    * Confirmed `aud-author` can list and read compliance reports in `/srv/nexacore/audit`, but receives `Permission denied` when attempting to enter `/srv/nexacore/dev` or modify files inside `/srv/nexacore/audit`.
 
-![Phase 3 Permissions and Access Verification](docs/phase3-permissions.png)
+![Phase 3 Permissions and Access Verification](docs/Phase3-permissions.png)
