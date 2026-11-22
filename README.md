@@ -49,8 +49,8 @@ secure-linux-server-admin/
 * [x] **Phase 1:** Hybrid Infrastructure Setup & Baseline Profiling
 * [x] **Phase 2:** Identity, Group Architecture & Least-Privilege `sudo`
 * [x] **Phase 3:** Shared Filesystem Hierarchy, Permissions & SGID Inheritance
-* [x ] **Phase 4:** Package & Software Lifecycle Management (`APT`)
-* [ ] **Phase 5:** SSH Key-Based Authentication & Daemon Hardening
+* [x] **Phase 4:** Package & Software Lifecycle Management (`APT`)
+* [x] **Phase 5:** SSH Key-Based Authentication & Daemon Hardening
 * [ ] **Phase 6:** Host Firewall (`UFW`) & Perimeter Hardening
 * [ ] **Phase 7:** Service Lifecycle (`systemd`), Networking & Log Diagnostics (`journalctl`)
 * [ ] **Phase 8:** Automated Backups (`tar`/`rsync`), Bash Health Checks & `cron`
@@ -135,3 +135,26 @@ Maintain system patch hygiene, install essential web and diagnostic software, in
 3. **Lifecycle Cleanup & Audit:** Verified clean package removal (`apt purge`), orphaned dependency cleanup (`apt autoremove`), cache pruning (`apt autoclean`), and zero broken dependencies (`dpkg --audit`).
 
 ![Phase 4 Package Management Verification](docs/phase4-packages.png)
+
+## Phase 5: SSH Key-Based Authentication & Daemon Hardening
+
+### Objective
+Eliminate password-based brute-force exposure on `vm-prod-srv-01` by enforcing Ed25519 asymmetric key authentication and hardening the OpenSSH daemon configuration.
+
+### Hardened `sshd` Policy (`configs/01-nexacore-hardening.conf`)
+
+| Directive | Configured Value | Security Control |
+| :--- | :--- | :--- |
+| `PubkeyAuthentication` | `yes` | Enforces cryptographic key-pair authentication |
+| `PasswordAuthentication` | `no` | Blocks password-based SSH login attempts |
+| `KbdInteractiveAuthentication` | `no` | Prevents challenge-response password fallback |
+| `PermitRootLogin` | `no` | Blocks direct remote root access over SSH |
+| `MaxAuthTries` | `3` | Limits authentication attempts per connection |
+| `X11Forwarding` | `no` | Disables unused GUI forwarding tunnels |
+
+### Key Actions & Verification
+1. **Asymmetric Key Provisioning:** Generated an Ed25519 key pair (`ssh-keygen -t ed25519`) on the administrator workstation (`noebl@nobel`) and deployed the public key to `azureuser@vm-prod-srv-01` via `ssh-copy-id`.
+2. **Modular Daemon Hardening:** Applied `/etc/ssh/sshd_config.d/01-nexacore-hardening.conf`, validated configuration syntax with `sshd -t`, and reloaded `ssh` cleanly.
+3. **Runtime & Negative Testing:** Verified effective runtime settings via `sshd -T` and confirmed password-only connections (`ssh -o PubkeyAuthentication=no`) are rejected with `Permission denied (publickey)`.
+
+![Phase 5 SSH Hardening Verification](docs/phase5-ssh-hardening.png)
