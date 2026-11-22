@@ -51,7 +51,7 @@ secure-linux-server-admin/
 * [x] **Phase 3:** Shared Filesystem Hierarchy, Permissions & SGID Inheritance
 * [x] **Phase 4:** Package & Software Lifecycle Management (`APT`)
 * [x] **Phase 5:** SSH Key-Based Authentication & Daemon Hardening
-* [ ] **Phase 6:** Host Firewall (`UFW`) & Perimeter Hardening
+* [x] **Phase 6:** Host Firewall (`UFW`) & Perimeter Hardening
 * [ ] **Phase 7:** Service Lifecycle (`systemd`), Networking & Log Diagnostics (`journalctl`)
 * [ ] **Phase 8:** Automated Backups (`tar`/`rsync`), Bash Health Checks & `cron`
 
@@ -158,3 +158,24 @@ Eliminate password-based brute-force exposure on `vm-prod-srv-01` by enforcing E
 3. **Runtime & Negative Testing:** Verified effective runtime settings via `sshd -T` and confirmed password-only connections (`ssh -o PubkeyAuthentication=no`) are rejected with `Permission denied (publickey)`.
 
 ![Phase 5 SSH Hardening Verification](docs/phase5-ssh-hardening.png)
+
+## Phase 6: Host Firewall (`UFW`) & Perimeter Hardening
+
+### Objective
+Enforce defense-in-depth perimeter protection on `vm-prod-srv-01` by configuring a default-deny host firewall (`UFW`) aligned with active network services and Azure NSG rules.
+
+### Active Firewall Policy (`ufw status verbose`)
+
+| Rule / Policy | Direction | Action | Target / Port | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| Default Policy | Incoming | `DENY` | All Unlisted Ports | Blocks unsolicited inbound network probes |
+| Default Policy | Outgoing | `ALLOW` | All Outbound | Permits `APT` updates, DNS, and system traffic |
+| Administrative Access | Inbound | `ALLOW IN` | `22/tcp` (IPv4 & IPv6) | Encrypted SSH administration |
+| Application Service | Inbound | `ALLOW IN` | `80/tcp` (IPv4 & IPv6) | Nginx HTTP web traffic |
+
+### Key Actions & Verification
+1. **Default-Deny Posture:** Configured `ufw default deny incoming` and `ufw default allow outgoing`, staging `22/tcp` prior to activation to prevent administrative lockout.
+2. **Service Rule & Activation:** Permitted `80/tcp` with audit comments, enabled UFW across system reboots (`ufw enable`), and verified active rules via `ufw status verbose` and `ufw status numbered`.
+3. **Socket & Perimeter Verification:** Audited listening sockets (`ss -tulnp`) to confirm strict alignment with `sshd` (`22`) and `nginx` (`80`), and verified external port reachability versus closed-port packet drops (`8080`).
+
+![Phase 6 UFW Firewall Verification](docs/phase6-firewall.png)
